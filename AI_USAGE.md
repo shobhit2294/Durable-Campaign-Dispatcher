@@ -21,7 +21,7 @@ them if they do not reflect my own understanding.
 
 The first timezone implementation used `ZoneInfo("Asia/Kolkata")`. On this Windows Python
 environment the IANA timezone database was missing, and the test run failed during import. The
-code now uses India’s fixed UTC+05:30 offset, which matches the provider clock and does not
+scheduling module now uses a fixed UTC+05:30 offset, which matches the provider clock and does not
 require a timezone database.
 
 ## Verification

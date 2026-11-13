@@ -39,18 +39,18 @@ cd provider
 python -m mock_telephony --failure-scale 0
 ```
 
-In a second terminal, set the same `DISPATCHER_FERNET_KEY`, return to the repository root, and
-start the service:
+Open a second terminal at the repository root, set the same `DISPATCHER_FERNET_KEY`, and start
+the service:
 
 ```powershell
-cd ..
+$env:DISPATCHER_FERNET_KEY = "<the-same-generated-key>"
 python -m campaign_dispatcher.dispatcher
 ```
 
 The service listens on port 8200 and writes `final_state.csv` after all leads reach a final
 state. `/status` reports current progress. By default, the simulator advances 10 simulated minutes
-per real second; use
-its normal failure mode for a chaos run after the clean run succeeds.
+per real second. After a clean run, you can exercise the provider's failure injection by restarting
+it with `python -m mock_telephony --failure-scale 1 --speed 1200 --seed 2026`.
 
 Run the scheduling tests with:
 
