@@ -1,22 +1,25 @@
 # Durable Campaign Dispatcher
 
-A Python service that schedules outbound calls safely across campaign windows, tenant limits,
-callbacks, retries, and global do-not-call requests. The dispatcher persists each call intent
-before contacting the carrier and recovers ambiguous requests using an idempotency key.
+This project runs outbound calling campaigns through a local telephony provider. It decides when a
+lead can be called, keeps each tenant within its call limit, waits before retries, handles requested
+callbacks, and blocks numbers that ask not to be called again.
 
-## Project layout
+The important part is what happens when something goes wrong. Every call is saved in SQLite before
+the provider is contacted. That saved record contains a stable request ID, so a restart can check
+what happened and safely continue without placing the same call twice.
+
+## Project folders
 
 ```text
-campaign_dispatcher/   service and scheduling rules
-provider/              local carrier simulator and synthetic fixtures
-tests/                 fast scheduling tests
-docs/                  domain terms
+campaign_dispatcher/   The dispatcher and scheduling code
+provider/              The local telephony simulator and fixtures
+tests/                 Unit tests for the scheduling rules
+docs/                  Project terminology
 ```
 
-## Run locally
+## Start the project
 
-Requires Python 3.11 or newer. From the repository root, create an environment and install the
-dependencies:
+Use Python 3.11 or newer. Run these commands from the repository root:
 
 ```powershell
 python -m venv .venv
@@ -24,46 +27,52 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Generate a Fernet key once, keep it private, and reuse the same key whenever you restart the
-dispatcher:
+The phone numbers are encrypted in the SQLite database. Create a Fernet key once and use the same
+key every time the dispatcher is restarted:
 
 ```powershell
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 $env:DISPATCHER_FERNET_KEY = "<generated-key>"
 ```
 
-Start the local carrier simulator in one terminal:
+Open one terminal and start the provider:
 
 ```powershell
 cd provider
 python -m mock_telephony --failure-scale 0
 ```
 
-Open a second terminal at the repository root, set the same `DISPATCHER_FERNET_KEY`, and start
-the service:
+Open a second terminal at the repository root, set the same key, and start the dispatcher:
 
 ```powershell
 $env:DISPATCHER_FERNET_KEY = "<the-same-generated-key>"
 python -m campaign_dispatcher.dispatcher
 ```
 
-The service listens on port 8200 and writes `final_state.csv` after all leads reach a final
-state. `/status` reports current progress. By default, the simulator advances 10 simulated minutes
-per real second. After a clean run, you can exercise the provider's failure injection by restarting
-it with `python -m mock_telephony --failure-scale 1 --speed 1200 --seed 2026`.
+The dispatcher listens on port `8200`. When it finishes, it writes `final_state.csv`. While it is
+running, `GET http://127.0.0.1:8200/status` shows progress. The provider's clock runs faster than
+real time: by default, one real second represents ten simulated minutes.
 
-Run the scheduling tests with:
+After a clean run, you can try the provider's failure cases:
+
+```powershell
+python -m mock_telephony --failure-scale 1 --speed 1200 --seed 2026
+```
+
+Run the tests from the repository root:
 
 ```powershell
 pytest
 ```
 
-## Reliability notes
+## Reliability basics
 
-- SQLite stores the lead lifecycle and each stable provider request ID.
-- Phone numbers are encrypted at rest; keyed fingerprints enforce phone-level exclusion and
-  global DND without storing plaintext lookup keys.
-- The provider's simulated clock controls every call window, retry, and callback decision.
-- Signed webhooks are idempotent, and provider polling recovers results when webhooks are lost.
+- SQLite stores the lead state, call state, and provider request IDs.
+- Phone numbers are encrypted. A keyed fingerprint is used when the service needs to compare phone
+  numbers for active-call and DND checks.
+- The provider's simulated time is used for calling windows, callbacks, and retries.
+- Webhooks are checked with HMAC and recorded only once. If a webhook is lost, the dispatcher polls
+  the provider for the result.
 
-See [SUBMISSION.md](./SUBMISSION.md) for the state model, trade-offs, and verified run results.
+For the design explanation, state diagram, failure cases, and run results, see
+[SUBMISSION.md](./SUBMISSION.md).

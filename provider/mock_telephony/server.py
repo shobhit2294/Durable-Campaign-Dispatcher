@@ -1,5 +1,5 @@
 """
-Mock telephony provider for Assignment B.
+Mock telephony provider for Durable Campaign Dispatcher.
 
 Behaves like a (slightly hostile) real carrier API:
   * simulated clock running faster than real time

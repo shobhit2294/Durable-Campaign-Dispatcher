@@ -1,121 +1,117 @@
 # Durable Campaign Dispatcher
 
-## Candidate
+## Project information
 
-- **Name:** Fill in before sharing.
-- **Project scope:** Durable campaign dispatcher
-- **Time spent:** Fill in honestly when the work is complete.
+- **Project:** Durable campaign dispatcher
+- **Name:** Fill in before sharing
+- **Time spent:** Fill in honestly when the work is complete
 
-## How to run
+## How to run it
 
-Follow the setup and run commands in [README.md](./README.md). Run the scheduling tests with
-`pytest` from the repository root.
+The complete setup is in [README.md](./README.md). In short, start the provider in one terminal,
+start the dispatcher in another, and run `pytest` from the repository root for the unit tests.
 
-## Design
+## The approach
 
-The dispatcher is a single FastAPI process backed by SQLite. The `leads` table stores current
-lead state; `calls` records durable intent and the provider result for each attempt. The
-dispatcher commits a deterministic `request_id` before making the provider request. If the
-process dies before or after acceptance, it looks up that same ID. A 404 means the provider has
-not recorded it, so retrying that ID is safe; an existing call is adopted and polled until its
-result is known. The provider idempotency key is the boundary across the network.
+I used one FastAPI process and a SQLite database. The database has one table for the current lead
+state and another table for every call that has been reserved or sent.
 
-Phone numbers are Fernet-encrypted in SQLite. A keyed HMAC fingerprint supports phone-wide
-uniqueness, active-call checks, and DND enforcement without storing searchable phone values.
-The encryption key is supplied through `DISPATCHER_FERNET_KEY` and is not written into the
-repository or database.
+The dispatcher creates a request ID before it talks to the provider. The ID is based on the campaign,
+lead, and attempt number. If the process stops before sending the request, the same ID is sent after
+restart. If the provider accepted the call but the process stopped before saving the response, the
+dispatcher looks up that ID and continues with the existing call. This is how the service avoids
+dialling the same attempt twice.
+
+Phone numbers are encrypted before being stored. The service also stores a keyed fingerprint so it
+can enforce one active call per phone and apply a DND decision across campaigns without using a
+searchable plaintext phone number. The encryption key comes from `DISPATCHER_FERNET_KEY` and must be
+kept between restarts.
+
+## Lead lifecycle
 
 ```mermaid
 stateDiagram-v2
     [*] --> Ready
-    Ready --> Reserved: persist request_id
-    Reserved --> Submitting: POST call
-    Submitting --> Unknown: timeout / 504
-    Unknown --> Active: lookup finds accepted call
-    Unknown --> Submitting: lookup 404, retry same ID
-    Submitting --> Active: 200 / 201
+    Ready --> Reserved: save request ID
+    Reserved --> Submitting: send provider request
+    Submitting --> Unknown: timeout or 504
+    Unknown --> Active: lookup finds the call
+    Unknown --> Submitting: lookup returns 404, retry same ID
+    Submitting --> Active: provider returns 200 or 201
     Active --> Ended: webhook or provider poll
-    Ended --> CallbackWait: callback_requested
-    Ended --> RetryWait: no_answer / busy / failed
+    Ended --> CallbackWait: callback requested
+    Ended --> RetryWait: no answer, busy, or failed
     Ended --> Final: terminal disposition
-    CallbackWait --> Reserved: callback due in a window
-    RetryWait --> Reserved: retry due in a window
+    CallbackWait --> Reserved: callback is due
+    RetryWait --> Reserved: retry is due
     Ended --> Final: attempts exhausted
-    Ready --> Final: phone is globally DND blocked
+    Ready --> Final: phone is globally blocked
 ```
 
-`request_id` is stable for one accepted-attempt slot (`campaign_id:lead_id:attempt_number`).
-503 responses leave the accepted attempt count unchanged and wait before retrying. 504s and
-network failures remain unresolved until the provider lookup settles the outcome. Webhooks are
-verified against the raw-body HMAC and deduplicated by request ID; provider polling recovers a
-lost webhook. Callback and retry times use `ended_at` and the provider's simulated clock. Calls
-are reserved transactionally so tenant concurrency and phone uniqueness include requests whose
-acceptance is still unknown.
+A 503 means the provider did not place a call, so the attempt count stays the same. A 504 or a
+network timeout is different: the call may have been placed, so the request stays unresolved until
+the provider lookup tells us what happened. A webhook can arrive before the HTTP response; the
+database logic accepts that result and will not overwrite an ended call later.
 
-## Decisions and assumptions
+## Why I chose these pieces
 
-| Decision | Why | Alternative considered |
-|---|---|---|
-| SQLite for durable state | It is available locally and transactions protect the claim-before-request step. | Temporal or Postgres; either adds a service dependency for this single-process project. |
-| One dispatcher process | Keeps deployment and local setup small while meeting the core scope. | Multiple workers require explicit ownership and shared callback deployment. |
-| Use provider time for eligibility | Machine time may differ from the simulated carrier clock. | Trust local wall-clock time. |
-| Keep a 60 simulated-second request margin at window close | Gives a slow local request time to reach the provider before a boundary. | Dispatch right up to closing and rely on provider skew tolerance. |
-| Require an external Fernet key | Losing it should fail closed instead of silently making stored phone data unreadable or using a default secret. | Generate a key on every start (breaks crash recovery) or store it beside the database. |
+| Choice | Why I used it |
+|---|---|
+| SQLite | It is easy to run locally, and transactions let me save a call reservation before network I/O. |
+| One dispatcher process | It keeps ownership simple and is enough for the required local workflow. |
+| Provider clock | The provider's simulated clock is the source of truth for windows and retry times. |
+| 60-second closing margin | It gives a request some simulated time to reach the provider before a window closes. |
+| External Fernet key | A missing key fails safely instead of silently creating unreadable data. |
 
-## Failure modes considered
+## Failure cases handled
 
-- **Crash before the provider request:** the persisted request ID is looked up; if absent, the
-  same ID is sent.
-- **Crash after provider acceptance but before local acknowledgement:** lookup by request ID
-  adopts the accepted call without placing a second call.
-- **504 or connection timeout:** retain the reservation and reconcile through the provider's
-  request-ID endpoint.
-- **503:** the provider says no call was placed, so no attempt is counted; retry later with the
-  same key.
-- **Duplicate or missing webhook:** duplicates are harmless; active calls are polled until the
-  provider returns the ended result.
-- **DND and shared phone numbers:** keyed phone fingerprints apply the block across all
-  campaigns; completed and exhausted states take precedence.
-- **Lost database or encryption key:** recovery is not possible; both are required persistent
-  state and must be backed up together.
+- A crash before the provider request reuses the saved request ID.
+- A crash after provider acceptance adopts the existing call through a request-ID lookup.
+- A 504 or network timeout remains reserved until its outcome is known.
+- A 503 is retried later and does not count as an accepted attempt.
+- Duplicate webhooks are ignored after the first event.
+- Missing webhooks are recovered by polling the provider.
+- DND is enforced across campaigns using the phone fingerprint.
+- Completed and exhausted leads keep their required precedence over `dnd_blocked`.
 
-This version targets one dispatcher process. It does not implement multi-region failover or
-two independent workers coordinating through a distributed lock.
+The current version is deliberately single-process. It does not include multi-region failover or two
+dispatcher workers sharing a distributed lock.
 
-## Testing
+## What I tested
 
-The focused unit tests cover inclusive/exclusive window boundaries, allowed days, the overlap
-between campaign and regulatory windows, and callback/retry/fresh-lead ordering. Both a clean
-run and a forced-stop recovery run were completed against the local provider.
+The unit tests cover the start-inclusive and end-exclusive window rules, allowed days, the overlap
+between campaign and regulatory windows, and callback/retry/fresh-lead priority.
 
-## Results
+I also ran two provider checks. The first used failure injection disabled. The second used injected
+failures and stopped the dispatcher after 92 calls before starting it again with the same database
+and key.
 
-Clean local provider run:
+### Clean run
 
-- Leads written: 200
-- Calls placed: 407
-- Provider violations: 0
-- Difference against `/admin/leads`: 0 rows
-- Maximum observed concurrency: `acme_insurance` 3 (limit 4), `zen_retail` 3 (limit 3)
-- Callback lateness in simulated minutes: p50 1.9, p90 10.3, max 22.5
-- Webhooks delivered: 407
+- 200 leads completed
+- 407 calls placed
+- 0 provider violations
+- 0 differences from `/admin/leads`
+- Maximum concurrency: `acme_insurance` 3 of 4; `zen_retail` 3 of 3
+- Callback lateness: p50 1.9, p90 10.3, maximum 22.5 simulated minutes
+- 407 webhooks delivered
 
-Failure-injection and restart run (seed `2026`, failure scale `1`, speed `1200x`):
+### Failure and restart run
 
-- The dispatcher was force-stopped after 92 calls and restarted with the same database and key.
-- Calls placed: 422
-- Provider violations: 0
-- Difference against `/admin/leads`: 0 rows
-- Webhook deliveries: 452, including 40 duplicate deliveries; 10 were lost and recovered by
-  provider polling.
-- Callback lateness in simulated minutes: p50 4.3, p90 36.4, max 52.2
+This run used seed `2026`, failure scale `1`, and speed `1200x`.
 
-The forced stop was performed on Windows, where it is equivalent to terminating the process;
-the evaluator's `kill -9` scenario has not been run on Linux.
+- 422 calls placed
+- 0 provider violations
+- 0 differences from `/admin/leads`
+- 452 webhook deliveries, including 40 duplicates
+- 10 missing webhook deliveries recovered by provider polling
+- Callback lateness: p50 4.3, p90 36.4, maximum 52.2 simulated minutes
 
-## If I had another day
+The forced stop was done on Windows. The evaluator may use a literal Linux `kill -9`, which I did not
+run locally.
 
-1. Run multiple unseen provider seeds with injected failures and process restarts, and keep the
-   reports as reproducible evidence.
-2. Add focused persistence tests around webhook-before-response and 504 reconciliation.
-3. Add multi-process coordination if horizontal scale becomes part of the requirements.
+## Improvements I would make next
+
+1. Repeat the failure run with several unseen provider seeds.
+2. Add persistence tests for webhook-before-response and 504 recovery.
+3. Add multi-process coordination if the service needs to scale horizontally.

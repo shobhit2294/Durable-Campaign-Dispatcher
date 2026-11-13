@@ -1,0 +1,22 @@
+INFO:     Started server process [14856]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8200 (Press CTRL+C to quit)
+2026-11-13 09:15:04,861 INFO dispatcher Dispatcher progress: {"active_calls": 1, "leads": {"pending": 200}}
+2026-11-13 09:15:14,949 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 19, "dnd_blocked": 1, "pending": 180}}
+2026-11-13 09:15:24,990 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 19, "dnd_blocked": 1, "pending": 180}}
+2026-11-13 09:15:35,134 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 19, "dnd_blocked": 1, "pending": 180}}
+2026-11-13 09:15:45,177 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 19, "dnd_blocked": 1, "pending": 180}}
+2026-11-13 09:15:55,192 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 19, "dnd_blocked": 1, "pending": 180}}
+2026-11-13 09:16:05,268 INFO dispatcher Dispatcher progress: {"active_calls": 2, "leads": {"completed": 30, "dnd_blocked": 1, "exhausted": 9, "pending": 160}}
+2026-11-13 09:16:15,373 INFO dispatcher Dispatcher progress: {"active_calls": 1, "leads": {"completed": 49, "dnd_blocked": 1, "exhausted": 21, "pending": 129}}
+2026-11-13 09:16:25,412 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 56, "dnd_blocked": 1, "exhausted": 27, "pending": 116}}
+2026-11-13 09:16:35,523 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 56, "dnd_blocked": 1, "exhausted": 27, "pending": 116}}
+2026-11-13 09:16:45,533 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 56, "dnd_blocked": 1, "exhausted": 27, "pending": 116}}
+2026-11-13 09:16:55,572 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 56, "dnd_blocked": 1, "exhausted": 27, "pending": 116}}
+2026-11-13 09:17:05,697 INFO dispatcher Dispatcher progress: {"active_calls": 1, "leads": {"completed": 58, "dnd_blocked": 1, "exhausted": 28, "pending": 113}}
+2026-11-13 09:17:15,758 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 77, "dnd_blocked": 1, "exhausted": 38, "pending": 84}}
+2026-11-13 09:17:25,836 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 82, "dnd_blocked": 1, "exhausted": 47, "pending": 70}}
+2026-11-13 09:17:35,914 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 82, "dnd_blocked": 1, "exhausted": 47, "pending": 70}}
+2026-11-13 09:17:46,022 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 82, "dnd_blocked": 1, "exhausted": 47, "pending": 70}}
+2026-11-13 09:17:56,133 INFO dispatcher Dispatcher progress: {"active_calls": 0, "leads": {"completed": 82, "dnd_blocked": 1, "exhausted": 47, "pending": 70}}

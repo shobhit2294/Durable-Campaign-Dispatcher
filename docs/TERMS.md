@@ -1,25 +1,25 @@
-# Project Terms
+# Project terms
 
-Terms used in this project and in customer calling workflows.
+These are the terms used in the dispatcher and in customer calling workflows.
 
 | Term | Meaning |
 |---|---|
-| **Tenant** | A client company using the platform (for example an insurer). Limits like call concurrency apply per tenant. |
-| **Workflow** | A business process run by voice agents, such as `motor_renewal` (remind customers to renew their policy) or `policy_feedback` (collect feedback after purchase). Each workflow has its own lead schema and disposition catalogue. |
-| **Campaign** | One run of outbound calling for a tenant: a set of leads, a calling window, and retry rules. |
-| **Lead** | A customer we intend to call, uploaded by the client. Identified within a workflow by phone number. |
-| **Batch** | One uploaded file of leads. Reports are often grouped by batch ("how is Monday's upload doing?"). |
-| **Lead schema** | Per-workflow definition of the columns we accept, their types, which are required, and which are PII. |
-| **PII** | Personally identifiable information: names, phone numbers. Must be protected at rest. |
-| **Call / Interaction** | One attempt to reach a lead. A call may fail at the telephony layer, ring out unanswered, or connect. |
-| **Connectivity rate** | Connected calls ÷ total calls. A core health metric for every campaign. |
-| **Disposition** | The classified outcome of a connected call, for example `renewed`, `callback_requested`, `not_interested`. Set by the AI agent after the call. |
-| **Terminal disposition** | A disposition that ends our work on a lead. No more calls. |
-| **Success disposition** | A disposition that counts as a business win for the client (for example `renewed`). |
-| **Override** | A human supervisor correcting the AI's disposition. Recorded as a **new** event; the original is never edited. |
-| **Interaction ledger** | The append-only record of everything that happened on every call. Reports are derived from it; it is the single source of truth. |
-| **Calling window** | The hours (and days) during which we may start calls. Regulation in India restricts commercial calls to 09:00–21:00. |
-| **DND** | "Do Not Disturb": the customer has asked never to be called. Calling them again is a compliance breach. |
-| **Callback** | The customer asked to be called back at a specific time. Honouring it promptly matters a lot for conversion. |
-| **Telephony provider** | The carrier API that actually places calls and reports results via webhooks. |
-| **Idempotency key** | A client-chosen ID (`request_id`) that makes retrying a request safe: the provider performs the action at most once per key. |
+| **Tenant** | A client company using the platform. Concurrency limits are applied per tenant. |
+| **Workflow** | A business process run by voice agents, such as renewing a motor policy or collecting feedback after a purchase. Each workflow can define its own lead fields and dispositions. |
+| **Campaign** | One outbound calling run for a tenant, including its leads, calling window, and retry policy. |
+| **Lead** | A customer we intend to call. A lead belongs to a campaign and is identified by its campaign and lead ID. |
+| **Batch** | One uploaded group of leads. Reports may group results by batch. |
+| **Lead schema** | The definition of accepted lead columns, their types, required fields, and PII fields. |
+| **PII** | Personally identifiable information, such as a person's name or phone number. It must be protected at rest. |
+| **Call / interaction** | One attempt to reach a lead. It can fail at the carrier, go unanswered, or connect. |
+| **Connectivity rate** | Connected calls divided by total calls. It is a basic campaign health metric. |
+| **Disposition** | The outcome classified after a connected call, such as `renewed`, `callback_requested`, or `not_interested`. |
+| **Terminal disposition** | A disposition that ends work on a lead. The lead is not called again. |
+| **Success disposition** | A disposition that represents a business win for the client, such as `renewed`. |
+| **Override** | A human correction to an AI disposition. It is recorded as a new event; the original event remains unchanged. |
+| **Interaction ledger** | The append-only history of events for every call. Reports are derived from this history. |
+| **Calling window** | The local hours and days when calls may start. Commercial calls in India are restricted to 09:00–21:00. |
+| **DND** | “Do not disturb.” A customer who asks not to be called must not be called again. |
+| **Callback** | A request from the customer to be called again at a particular time. |
+| **Telephony provider** | The carrier API that places calls and sends back results through webhooks. |
+| **Idempotency key** | A client-chosen ID, called `request_id` here, that makes safely retrying one provider request possible. |

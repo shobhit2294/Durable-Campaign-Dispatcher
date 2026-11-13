@@ -1,33 +1,28 @@
-# AI Usage
+# AI usage
 
-## Tools used
+## How I used Codex
 
-ChatGPT (Codex).
+I used ChatGPT (Codex) while building this project. It helped me read the provider brief and inspect
+the simulator, sketch the dispatcher and scheduling helpers, write the initial tests, and improve the
+project documentation. It also helped me run the unit tests and a clean provider integration run.
 
-## What it helped with
+## What I reviewed myself
 
-Codex read the project brief and provider behavior, then drafted much of the dispatcher,
-scheduling helpers, tests, and project documentation. It also helped run the tests and a clean
-provider integration run.
+I still need to read the implementation end to end before sharing it and be able to explain the
+request-ID recovery flow, window and retry calculations, DND precedence, and encrypted phone storage.
+The design decisions are recorded in [SUBMISSION.md](./SUBMISSION.md); I will change that document
+if it stops matching the code.
 
-## What I need to review myself
+## An AI mistake I caught
 
-I need to read through the code and verify that I can explain the request-ID recovery flow,
-window and retry calculations, DND precedence, and encrypted phone storage before sharing this
-project. The design choices currently used are documented in `SUBMISSION.md`; I should change
-them if they do not reflect my own understanding.
-
-## Example of an AI mistake and how it was caught
-
-The first timezone implementation used `ZoneInfo("Asia/Kolkata")`. On this Windows Python
-environment the IANA timezone database was missing, and the test run failed during import. The
-scheduling module now uses a fixed UTC+05:30 offset, which matches the provider clock and does not
-require a timezone database.
+The first timezone version used `ZoneInfo("Asia/Kolkata")`. The Windows environment did not have an
+IANA timezone database, so imports failed during the test run. I changed the scheduling code to use
+India's fixed UTC+05:30 offset, which matches the provider clock and does not require that database.
 
 ## Verification
 
-Five scheduling tests passed. A clean local provider run completed 200 leads with zero provider
-violations and no differences from `/admin/leads`. A second run used failure injection, was
-force-stopped after 92 calls, and resumed from the same database; it finished with zero
-violations and no differences from `/admin/leads`. The provider reported 40 duplicate and 10
-lost webhooks; polling recovered the missing results.
+Five scheduling tests passed. A clean provider run completed 200 leads with zero provider violations
+and no differences from `/admin/leads`. A second run used failure injection, stopped the dispatcher
+after 92 calls, and resumed it with the same database. It also finished with zero violations and no
+differences from `/admin/leads`. The provider reported 40 duplicate webhook deliveries and 10 lost
+deliveries; polling recovered the missing results.
